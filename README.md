@@ -1,7 +1,7 @@
 # SHITP — Super Hybrid Information Transfer Protocol
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
-![Version](https://img.shields.io/badge/version-0.1.0-orange)
+![Version](https://img.shields.io/badge/version-0.1.1-orange)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 
 > **Simple structure. Known sizes. Easy parsing.**
@@ -15,7 +15,8 @@ format that is predictable in structure, fast to parse, and easy to implement.
 
 This repository contains the core building blocks of the protocol:
 
-- Helper functions for **packet serialization and parsing** (`base.py`)
+- Core classes for **packet serialization and parsing** (`base.py`, `packet.py`)
+- Web-style **request and response builders** (`web/`)
 - The protocol's `method`, `mime`, and `status` enums
 
 ## What makes it different?
@@ -39,10 +40,12 @@ its own rules. The standout design decisions:
 
 ```
 shitp/
-├── base.py      # Packet serialization and parsing
+├── base.py      # ShitProtocol — create() and decode()
+├── packet.py    # ShitpPacket — headers, body, and encode()
 ├── methods.py   # ShitpMethod enum
 ├── mimes.py     # MimeType enum
-└── status.py    # ShitpStatus enum
+├── status.py    # ShitpStatus enum
+└── web/         # Request and response builders
 ```
 
 ## Wire format
@@ -67,7 +70,7 @@ Every header is a single-line `name=value` pair, UTF-8 encoded and terminated
 by `\n`:
 
 ```
-version=0.1.0
+version=0.1.1
 method=FETCH
 mime_type=shitp/markdown
 host=example.com
@@ -75,8 +78,8 @@ custom_header=value
 ```
 
 The first `=` character separates the name from the value; values may contain
-additional `=` characters. Standard headers are added automatically by the
-protocol; the `headers` parameter lets you add as many custom headers as you
+additional `=` characters. The builders set the standard headers
+automatically; `set_header()` lets you add as many custom headers as you
 like.
 
 ## Installation
@@ -91,47 +94,64 @@ Requirements:
 
 ## Usage
 
-Creating a client request and a server response:
+Building a client request and a server response:
 
 ```python
-from shitp.base import create_client_request, create_server_response
+from shitp.web.request import ShitpWebRequest
+from shitp.web.response import ShitpWebResponse
 from shitp.methods import ShitpMethod
 from shitp.mimes import MimeType
 from shitp.status import ShitpStatus
 
-request = create_client_request(
-    version="0.1.0",
-    method=ShitpMethod.FETCH,
-    mime_type=MimeType.MARKDOWN,
-    host="example.com",
-    body="# Hello, SHITP!",
-    headers={"user_agent": "shitp-client/0.1.0"},
-)
+request = ShitpWebRequest(
+    ShitpMethod.FETCH,
+    "example.com",
+    "# Hello, SHITP!",
+).create("0.1.1", MimeType.MARKDOWN)
 
-response = create_server_response(
-    version="0.1.0",
-    status=ShitpStatus.OK,
-    mime_type=MimeType.MARKDOWN,
-    message="Request processed successfully.",
-    body="# Hello!",
-)
+response = ShitpWebResponse(
+    ShitpStatus.OK,
+    "# Hello!",
+).create("0.1.1", MimeType.MARKDOWN)
 ```
 
-Parsing a packet (you strip the 8-byte size prefix yourself):
+Both return a `ShitpPacket`. Add custom headers with `set_header()` and
+serialize with `encode()`:
 
 ```python
-import struct
+request.set_header("user_agent", "shitp-client/0.1.1")
 
-from shitp.base import parse_shitp_request
-
-header_size, body_size = struct.unpack("!II", request[:8])
-headers, body = parse_shitp_request(header_size, body_size, request[8:])
-
-print(headers)  # {'version': '0.1.0', 'method': 'FETCH', ...}
-print(body)     # b'# Hello, SHITP!'
+raw_request = request.encode()  # bytes, ready for the wire
 ```
 
-## What's in v0.1.0?
+Decoding a packet — `ShitProtocol.decode()` handles the 8-byte size prefix
+automatically:
+
+```python
+from shitp.base import ShitProtocol
+
+protocol = ShitProtocol()
+packet = protocol.decode(raw_request)
+
+print(packet.get_header("method"))  # 'FETCH'
+print(packet.get_header("host"))    # 'example.com'
+print(packet.get_body())            # b'# Hello, SHITP!'
+```
+
+Building a packet directly, without the web builders:
+
+```python
+from shitp.packet import ShitpPacket
+
+packet = ShitpPacket()
+packet.set_header("version", "0.1.1")
+packet.set_header("mime_type", "shitp/markdown")
+packet.set_body("# Hello, SHITP!")
+
+raw = packet.encode()
+```
+
+## What's in v0.1.1?
 
 ### Methods — `shitp.methods`
 
@@ -156,14 +176,24 @@ print(body)     # b'# Hello, SHITP!'
 | `TIMEOUT`               | Timeout           |
 | `RESPONSE_ERROR`        | Response error    |
 
-### Functions — `shitp.base`
+### Classes — `shitp.base` and `shitp.packet`
 
-| Function                   | Purpose                                              |
-|----------------------------|------------------------------------------------------|
-| `create_header(**kwargs)`  | Builds a header string                               |
-| `create_client_request()`  | Serializes a client request into the wire format     |
-| `create_server_response()` | Serializes a server response into the wire format    |
-| `parse_shitp_request()`    | Parses a packet, returning `(headers, body)`         |
+| Member                                      | Purpose                                                  |
+|---------------------------------------------|----------------------------------------------------------|
+| `ShitProtocol.create(version, mime_type)`   | Builds a packet with the standard headers                |
+| `ShitProtocol.decode(raw_packet)`           | Parses wire bytes (size prefix included) into a packet   |
+| `ShitpPacket.set_header(name, value)`       | Adds or replaces a header                                |
+| `ShitpPacket.get_header(name)`              | Returns a header value, or `None` if absent              |
+| `ShitpPacket.set_body(str \| bytes)`        | Sets the packet body (`str` is UTF-8 encoded)            |
+| `ShitpPacket.get_body()`                    | Returns the raw body bytes                               |
+| `ShitpPacket.encode()`                      | Serializes the packet into wire bytes                    |
+
+### Builders — `shitp.web`
+
+| Class                                      | Purpose                                     |
+|--------------------------------------------|---------------------------------------------|
+| `ShitpWebRequest(method, host, body=None)` | Client request with `method`/`host` headers |
+| `ShitpWebResponse(status, body=None)`      | Server response with `status` header        |
 
 ## Roadmap
 
