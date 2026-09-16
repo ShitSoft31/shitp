@@ -167,11 +167,11 @@ print(body)     # b'# Hello, SHITP!'
 
 ## Roadmap
 
+- [x] Responsibilities should be separated. The protocol should be redesigned for general-purpose use.
+- [x] Refactor for object-oriented programming
 - [ ] More methods, MIME types, and status codes
-- [ ] Single-call packet parsing that handles the size prefix automatically
-- [ ] An official protocol specification document
 - [ ] Typed data structures for headers
-- [ ] A reference client/server implementation built on the packet helpers
+- [ ] Official protocol specification document
 
 The transport layer (TCP sockets) and the server frameworks built on top of
 it are out of scope for this repository; they will live in separate repos.
