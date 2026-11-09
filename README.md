@@ -1,7 +1,7 @@
 # SHITP — Super Hybrid Information Transfer Protocol
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
-![Version](https://img.shields.io/badge/version-0.3.1-orange)
+![Version](https://img.shields.io/badge/version-0.3.2-orange)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 
 > **Simple structure. Known sizes. Easy parsing.**
@@ -40,6 +40,7 @@ shitp/                    # repository root
 │   ├── methods.py        # FETCH / PUSH method constants
 │   ├── mimes.py          # MIME type constants
 │   └── status.py         # ShitpStatus enum
+├── pyproject.toml
 ├── README.md
 └── LICENSE
 ```
@@ -73,7 +74,7 @@ This allows the receiving application to process packets incrementally without a
 Every header is a single-line `name=value` pair, UTF-8 encoded and terminated by `\n`:
 
 ```text
-version=0.3.1
+version=0.3.2
 method=FETCH
 mime_type=shitp/markdown
 host=example.com
@@ -86,12 +87,30 @@ Headers are stored as part of the packet. `set_header()` allows you to add or re
 
 ## Installation
 
-The package is not published on PyPI yet. Clone the repository and make it importable: run Python from the repository root, add it to `PYTHONPATH`, or copy the inner `shitp/` package into your project. There are no external dependencies.
+The package is not published on PyPI yet, but it can be installed directly from the repository:
+
+```sh
+pip install "git+https://github.com/ShitSoft31/shitp.git@v0.3.2"
+```
+
+From a local clone:
+
+```sh
+pip install .
+```
+
+For development, use an editable install so source changes take effect without reinstalling:
+
+```sh
+pip install -e .
+```
+
+No pip? The package has no runtime dependencies — copy the `shitp/` package into your project or add the repository root to `PYTHONPATH`.
 
 Requirements:
 
 - Python 3.10+ (type hints use the `str | bytes` syntax)
-- Standard library only (`struct`, `enum`)
+- Standard library only (`struct`, `enum`); no runtime dependencies
 
 ## Usage
 
@@ -102,7 +121,7 @@ from shitp.packet import ShitpPacket
 
 packet = ShitpPacket()
 
-packet.set_header("version", "0.3.1")
+packet.set_header("version", "0.3.2")
 packet.set_header("method", "FETCH")
 packet.set_header("mime_type", "shitp/markdown")
 packet.set_header("host", "example.com")
@@ -115,7 +134,7 @@ raw_packet = packet.encode()
 ### Adding custom headers
 
 ```python
-packet.set_header("user_agent", "shitp-client/0.3.1")
+packet.set_header("user_agent", "shitp-client/0.3.2")
 packet.set_header("authorization", "Bearer token")
 
 raw_packet = packet.encode()
@@ -157,7 +176,7 @@ print(headers["host"])    # 'example.com'
 print(raw_body)           # b'# Hello, SHITP!'
 ```
 
-## What's in v0.3.1?
+## What's in v0.3.2?
 
 ### Methods — `shitp.methods`
 
@@ -212,6 +231,7 @@ from shitp.mimes import MARKDOWN
 - [x] Refactor for object-oriented programming.
 - [x] Separate packet serialization from transport and application-level logic.
 - [x] Move the protocol modules into a proper `shitp/` package.
+- [x] Make the package installable with pip (`pyproject.toml`).
 - [ ] More methods, MIME types, and status codes.
 - [ ] Built-in packet decoding helper (`ShitpPacket.decode`).
 - [ ] Typed data structures for headers.
