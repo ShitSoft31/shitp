@@ -16,7 +16,7 @@ Unlike application-specific protocols, SHITP does not impose a particular commun
 This repository contains the core building blocks of the protocol:
 
 - **Packet serialization** (`shitp/packet.py`)
-- Protocol constants for methods and MIME types, plus status code enums
+- Protocol constants for methods, MIME types, and status codes
 
 The transport layer (TCP sockets) and application-level implementations are intentionally kept outside the core protocol.
 
@@ -39,7 +39,7 @@ shitp/                    # repository root
 │   ├── packet.py         # ShitpPacket — headers, body and encoding
 │   ├── methods.py        # FETCH / PUSH method constants
 │   ├── mimes.py          # MIME type constants
-│   └── status.py         # ShitpStatus enum
+│   └── status.py         # status code constants
 ├── pyproject.toml
 ├── README.md
 └── LICENSE
@@ -110,7 +110,7 @@ No pip? The package has no runtime dependencies — copy the `shitp/` package in
 Requirements:
 
 - Python 3.10+ (type hints use the `str | bytes` syntax)
-- Standard library only (`struct`, `enum`); no runtime dependencies
+- Standard library only (`struct`); no runtime dependencies
 
 ## Usage
 
@@ -205,7 +205,13 @@ from shitp.mimes import MARKDOWN
 
 ### Statuses — `shitp.status`
 
-| Status | Description |
+Plain module-level string constants:
+
+```python
+from shitp.status import OK, NOT_FOUND, INTERNAL_SERVER_ERROR, TIMEOUT, RESPONSE_ERROR
+```
+
+| Constant | Description |
 |---|---|
 | `OK` | Request succeeded |
 | `NOT_FOUND` | Resource not found |
