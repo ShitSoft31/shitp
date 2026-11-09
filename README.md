@@ -1,7 +1,7 @@
 # SHITP — Super Hybrid Information Transfer Protocol
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
-![Version](https://img.shields.io/badge/version-0.2.0-orange)
+![Version](https://img.shields.io/badge/version-0.3.0-orange)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 
 > **Simple structure. Known sizes. Easy parsing.**
@@ -15,8 +15,8 @@ Unlike application-specific protocols, SHITP does not impose a particular commun
 
 This repository contains the core building blocks of the protocol:
 
-- **Packet serialization and parsing** (`packet.py`)
-- Protocol-related enums for methods, MIME types, and status codes
+- **Packet serialization** (`packet.py`)
+- Protocol constants for methods and MIME types, plus status code enums
 
 The transport layer (TCP sockets) and application-level implementations are intentionally kept outside the core protocol.
 
@@ -34,9 +34,9 @@ SHITP builds on the experience of established protocols but defines its own rule
 
 ```text
 shitp/
-├── packet.py    # ShitpPacket — headers, body, encoding and decoding
-├── methods.py   # ShitpMethod enum
-├── mimes.py     # MimeType enum
+├── packet.py    # ShitpPacket — headers, body and encoding
+├── methods.py   # FETCH / PUSH method constants
+├── mimes.py     # MIME type constants
 └── status.py    # ShitpStatus enum
 ```
 
@@ -69,7 +69,7 @@ This allows the receiving application to process packets incrementally without a
 Every header is a single-line `name=value` pair, UTF-8 encoded and terminated by `\n`:
 
 ```text
-version=0.2.0
+version=0.3.0
 method=FETCH
 mime_type=shitp/markdown
 host=example.com
@@ -98,7 +98,7 @@ from shitp.packet import ShitpPacket
 
 packet = ShitpPacket()
 
-packet.set_header("version", "0.2.0")
+packet.set_header("version", "0.3.0")
 packet.set_header("method", "FETCH")
 packet.set_header("mime_type", "shitp/markdown")
 packet.set_header("host", "example.com")
@@ -111,7 +111,7 @@ raw_packet = packet.encode()
 ### Adding custom headers
 
 ```python
-packet.set_header("user_agent", "shitp-client/0.2.0")
+packet.set_header("user_agent", "shitp-client/0.3.0")
 packet.set_header("authorization", "Bearer token")
 
 raw_packet = packet.encode()
@@ -131,34 +131,54 @@ binary_packet = packet.encode()
 
 String payloads are automatically encoded using UTF-8, while byte payloads are preserved as-is.
 
-### Decoding a packet
+### Reading a packet
 
-The receiving application is responsible for reading the 8-byte length prefix and collecting the complete packet before passing it to the decoder.
+The core protocol only serializes packets; `ShitpPacket` has no `decode()` method yet. The receiving application reads the 8-byte length prefix and parses the packet itself:
 
 ```python
-from shitp.packet import ShitpPacket
+import struct
 
-packet = ShitpPacket.decode(raw_packet)
+header_size, body_size = struct.unpack("!II", raw_packet[:8])
 
-print(packet.get_header("method"))  # 'FETCH'
-print(packet.get_header("host"))    # 'example.com'
-print(packet.get_body())            # b'# Hello, SHITP!'
+raw_header = raw_packet[8:8 + header_size]
+raw_body = raw_packet[8 + header_size:8 + header_size + body_size]
+
+headers = {}
+for line in raw_header.decode("utf-8").splitlines():
+    name, _, value = line.partition("=")
+    headers[name] = value
+
+print(headers["method"])  # 'FETCH'
+print(headers["host"])    # 'example.com'
+print(raw_body)           # b'# Hello, SHITP!'
 ```
 
-## What's in v0.2.0?
+## What's in v0.3.0?
 
 ### Methods — `shitp.methods`
 
-| Method | Description |
+Plain module-level string constants:
+
+```python
+from shitp.methods import FETCH, PUSH
+```
+
+| Constant | Description |
 |---|---|
 | `FETCH` | Retrieves a resource from the server |
 | `PUSH` | Sends a resource to the server |
 
 ### MIME types — `shitp.mimes`
 
-| MIME type | Description |
-|---|---|
-| `shitp/markdown` | Markdown content (the only type so far) |
+Plain module-level string constants:
+
+```python
+from shitp.mimes import MARKDOWN
+```
+
+| Constant | Value | Description |
+|---|---|---|
+| `MARKDOWN` | `shitp/markdown` | Markdown content (the only type so far) |
 
 ### Statuses — `shitp.status`
 
@@ -179,7 +199,8 @@ print(packet.get_body())            # b'# Hello, SHITP!'
 | `ShitpPacket.set_body(str \| bytes)` | Sets the packet body (`str` is UTF-8 encoded) |
 | `ShitpPacket.get_body()` | Returns the raw body bytes |
 | `ShitpPacket.encode()` | Serializes the packet into wire bytes |
-| `ShitpPacket.decode(raw_packet)` | Parses wire bytes into a packet |
+
+> Decoding is not part of the core API yet. See [Reading a packet](#reading-a-packet).
 
 ## Roadmap
 
@@ -187,6 +208,7 @@ print(packet.get_body())            # b'# Hello, SHITP!'
 - [x] Refactor for object-oriented programming.
 - [x] Separate packet serialization from transport and application-level logic.
 - [ ] More methods, MIME types, and status codes.
+- [ ] Built-in packet decoding helper (`ShitpPacket.decode`).
 - [ ] Typed data structures for headers.
 - [ ] Official protocol specification document.
 
